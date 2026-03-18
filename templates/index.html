@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MailBlast — Bulk Email Sender</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --white:#fff;--surface:#f6f8fc;--surface2:#e8eaed;--border:#dadce0;
+  --text:#202124;--text2:#5f6368;--text3:#80868b;
+  --blue:#1a73e8;--blue-h:#1558d6;--blue-bg:#e8f0fe;--blue-t:#1558d6;
+  --green:#1e8e3e;--green-bg:#e6f4ea;--green-t:#137333;
+  --red:#d93025;--red-bg:#fce8e6;--red-t:#b3261e;
+  --amber-bg:#fef7e0;--amber-t:#b06000;
+  --shadow:0 1px 3px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.08);
+  --shadow2:0 4px 16px rgba(0,0,0,.15);
+  --r:8px;--r2:24px;
+}
+body{font-family:'Roboto',sans-serif;background:var(--surface);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+
+/* ── TOPBAR ── */
+.topbar{background:var(--white);border-bottom:1px solid var(--border);height:64px;display:flex;align-items:center;padding:0 20px;gap:14px;position:sticky;top:0;z-index:100;flex-shrink:0}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:38px;height:38px;background:var(--blue);border-radius:10px;display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:20px;height:20px;fill:#fff}
+.logo-text{font-family:'Google Sans',sans-serif;font-size:20px;font-weight:600;color:var(--text)}
+.logo-text span{color:var(--blue)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.server-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:100px;background:var(--surface);font-size:12px;color:var(--text2)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--text3);transition:background .4s}
+.dot.live{background:var(--green)}
+
+/* ── LAYOUT ── */
+.layout{display:flex;flex:1;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{width:240px;flex-shrink:0;padding:12px 0;background:var(--white);border-right:1px solid var(--border);overflow-y:auto}
+.compose-wrap{padding:8px 14px 16px}
+.compose-btn{width:100%;display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--white);border:none;border-radius:var(--r2);box-shadow:var(--shadow2);cursor:pointer;font-family:'Google Sans',sans-serif;font-size:14px;font-weight:500;color:var(--text);transition:box-shadow .2s}
+.compose-btn:hover{box-shadow:0 6px 20px rgba(0,0,0,.2)}
+.compose-btn svg{width:22px;height:22px;fill:var(--blue)}
+.nav-item{display:flex;align-items:center;gap:14px;padding:9px 14px 9px 24px;border-radius:0 100px 100px 0;margin-right:14px;cursor:pointer;font-size:14px;color:var(--text2);transition:background .15s;user-select:none}
+.nav-item:hover{background:var(--surface2)}
+.nav-item.active{background:var(--blue-bg);color:var(--blue-t);font-weight:500}
+.nav-item svg{width:18px;height:18px;fill:currentColor;flex-shrink:0}
+.nav-badge{margin-left:auto;font-size:12px;font-weight:500;background:var(--blue);color:#fff;padding:1px 7px;border-radius:100px}
+.nav-div{height:1px;background:var(--border);margin:8px 14px}
+
+/* ── MAIN ── */
+.main{flex:1;overflow-y:auto}
+.main-inner{max-width:860px;margin:0 auto;padding:28px 24px}
+
+/* ── COMPOSE CARD ── */
+.compose-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:16px}
+.compose-header{background:#404040;color:#fff;padding:11px 18px;display:flex;align-items:center;justify-content:space-between;font-family:'Google Sans',sans-serif;font-size:14px;font-weight:500}
+.ch-actions{display:flex;gap:6px}
+.ch-btn{width:26px;height:26px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1}
+.ch-btn:hover{background:rgba(255,255,255,.25)}
+
+.field-row{display:flex;align-items:flex-start;border-bottom:1px solid var(--border);padding:10px 18px;gap:10px}
+.field-label{font-size:13px;color:var(--text3);min-width:52px;padding-top:3px;flex-shrink:0}
+.field-row input,.field-row textarea{flex:1;border:none;outline:none;font-size:14px;color:var(--text);font-family:'Roboto',sans-serif;background:transparent;resize:none;line-height:1.7}
+.field-row textarea.body-area{min-height:160px}
+.field-row textarea.recipients-area{min-height:120px;font-family:'Roboto Mono','Courier New',monospace;font-size:13px}
+.tag-chip{font-size:11px;padding:2px 9px;border-radius:100px;background:var(--blue-bg);color:var(--blue-t);font-weight:500;white-space:nowrap;align-self:center}
+
+/* ── CREDENTIAL ROW ── */
+.cred-section{padding:14px 18px;border-bottom:1px solid var(--border);background:var(--surface)}
+.cred-title{font-size:12px;font-weight:500;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px}
+.cred-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cred-field label{display:block;font-size:12px;color:var(--text3);margin-bottom:4px}
+.cred-field input{width:100%;border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;font-size:13px;font-family:'Roboto',sans-serif;color:var(--text);background:var(--white);outline:none;transition:border .15s}
+.cred-field input:focus{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-bg)}
+
+/* ── PDF UPLOAD ── */
+.pdf-section{padding:14px 18px;border-bottom:1px solid var(--border)}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--r);padding:20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface)}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--blue);background:var(--blue-bg)}
+.upload-zone p{font-size:13px;color:var(--text2);font-weight:500}
+.upload-zone span{font-size:12px;color:var(--text3)}
+.file-chip{display:inline-flex;align-items:center;gap:8px;background:var(--green-bg);border:1px solid rgba(30,142,62,.2);border-radius:100px;padding:5px 14px;font-size:13px;color:var(--green-t);margin-top:10px}
+.file-chip button{border:none;background:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0 2px}
+
+/* ── SETTINGS ROW ── */
+.settings-row{display:flex;align-items:center;gap:20px;padding:10px 18px;border-bottom:1px solid var(--border);background:var(--surface);font-size:13px;color:var(--text2);flex-wrap:wrap}
+.settings-row label{display:flex;align-items:center;gap:6px}
+.settings-row input[type=number]{width:60px;border:1px solid var(--border);border-radius:var(--r);padding:4px 8px;font-size:13px;font-family:'Roboto',sans-serif;outline:none}
+.settings-row input[type=number]:focus{border-color:var(--blue)}
+
+/* ── SEND BAR ── */
+.send-bar{display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--white)}
+.send-btn{display:flex;align-items:center;gap:8px;padding:9px 24px;background:var(--blue);color:#fff;border:none;border-radius:100px;font-family:'Google Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:all .15s}
+.send-btn:hover{background:var(--blue-h)}
+.send-btn:disabled{background:var(--text3);cursor:not-allowed}
+.send-btn svg{width:16px;height:16px;fill:#fff}
+.rec-count{font-size:13px;color:var(--text3)}
+
+/* ── PROGRESS PANEL ── */
+.progress-panel{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:16px}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.stat{background:var(--surface);border-radius:var(--r);padding:14px;text-align:center;border:1px solid var(--border)}
+.stat-val{font-size:26px;font-weight:300;font-family:'Google Sans',sans-serif}
+.stat-val.g{color:var(--green)}
+.stat-val.r{color:var(--red)}
+.stat-lbl{font-size:12px;color:var(--text3);margin-top:3px}
+.prog-bar{height:4px;background:var(--surface2);border-radius:100px;overflow:hidden;margin:0 0 16px}
+.prog-fill{height:100%;background:var(--blue);border-radius:100px;transition:width .35s ease;width:0%}
+
+/* ── LOG ── */
+.log-box{background:#1e1e2e;border-radius:var(--r);padding:14px;font-family:'Roboto Mono','Courier New',monospace;font-size:12px;max-height:240px;overflow-y:auto}
+.ll{padding:2px 0;color:#6c7086}
+.ll.ok{color:#a6e3a1}
+.ll.err{color:#f38ba8}
+.ll.info{color:#89b4fa}
+.ll.warn{color:#f9e2af}
+
+/* ── RESULT TABLE ── */
+.result-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px}
+.result-table th{text-align:left;padding:8px 10px;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+.result-table td{padding:8px 10px;border-bottom:1px solid var(--surface2)}
+.result-table tr:last-child td{border-bottom:none}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:500}
+.b-green{background:var(--green-bg);color:var(--green-t)}
+.b-red{background:var(--red-bg);color:var(--red-t)}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#202124;color:#fff;padding:11px 22px;border-radius:var(--r);font-size:14px;z-index:9999;transition:transform .3s;pointer-events:none;white-space:nowrap;font-family:'Roboto',sans-serif}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── GUIDE BOX ── */
+.guide{background:var(--blue-bg);border-radius:var(--r);padding:14px 16px;font-size:13px;color:var(--blue-t);line-height:1.9;margin-bottom:16px}
+.guide strong{font-weight:500;color:var(--blue-t)}
+
+@media(max-width:640px){
+  .sidebar{display:none}
+  .cred-grid{grid-template-columns:1fr}
+  .stats-row{grid-template-columns:repeat(3,1fr)}
+  .main-inner{padding:16px}
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+    </div>
+    <span class="logo-text">Mail<span>Blast</span></span>
+  </div>
+  <div class="topbar-right">
+    <div class="server-pill">
+      <div class="dot" id="dot"></div>
+      <span id="server-label">Connecting...</span>
+    </div>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="compose-wrap">
+      <button class="compose-btn" onclick="document.getElementById('gmail-input').focus()">
+        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        Compose
+      </button>
+    </div>
+    <div class="nav-item active">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+      Bulk send
+      <span class="nav-badge" id="nav-count" style="display:none"></span>
+    </div>
+    <div class="nav-div"></div>
+    <div class="nav-item" style="color:var(--text3);cursor:default">
+      <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+      Sent <span style="font-size:11px;margin-left:4px" id="sent-sidebar">0</span>
+    </div>
+    <div class="nav-item" style="color:var(--text3);cursor:default">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      Failed <span style="font-size:11px;margin-left:4px" id="fail-sidebar">0</span>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="main-inner">
+
+      <!-- Guide -->
+      <div class="guide">
+        <strong>How to use MailBlast</strong><br>
+        1. Enter your <strong>Gmail</strong> and <strong>App Password</strong> below<br>
+        2. Paste your <strong>recipient list</strong> — format: <code>Company Name, email@example.com</code><br>
+        3. Write your <strong>subject and email body</strong> — use <code>{company_name}</code> for personalization<br>
+        4. Upload your <strong>PDF</strong> (optional) and hit <strong>Send</strong>
+      </div>
+
+      <!-- Compose card -->
+      <div class="compose-card">
+
+        <!-- Header -->
+        <div class="compose-header">
+          New bulk message
+          <div class="ch-actions">
+            <button class="ch-btn" title="Reset" onclick="resetForm()">✕</button>
+          </div>
+        </div>
+
+        <!-- Gmail credentials -->
+        <div class="cred-section">
+          <div class="cred-title">Gmail credentials</div>
+          <div class="cred-grid">
+            <div class="cred-field">
+              <label>Gmail address</label>
+              <input type="email" id="gmail-input" placeholder="yourname@gmail.com">
+            </div>
+            <div class="cred-field">
+              <label>App password</label>
+              <input type="password" id="pass-input" placeholder="xxxx xxxx xxxx xxxx">
+            </div>
+          </div>
+        </div>
+
+        <!-- Recipients -->
+        <div class="field-row" style="border-bottom:1px solid var(--border)">
+          <span class="field-label">To</span>
+          <textarea class="recipients-area" id="recipients" placeholder="ABC Company, hr@abccompany.com&#10;XYZ Technologies, jobs@xyztech.com&#10;Infosys Ltd, careers@infosys.com&#10;..." oninput="countRecipients()"></textarea>
+        </div>
+
+        <!-- Subject -->
+        <div class="field-row">
+          <span class="field-label">Subject</span>
+          <input type="text" id="subject" placeholder="Application for Opportunity at {company_name}" value="Application for Opportunity at {company_name}">
+          <span class="tag-chip">{company_name}</span>
+        </div>
+
+        <!-- Body -->
+        <div class="field-row" style="border-bottom:none">
+          <span class="field-label">Body</span>
+          <textarea class="body-area" id="body">Dear {company_name},
+
+I hope this message finds you well.
+
+I am writing to express my interest in potential opportunities at your organization. Please find my resume attached for your consideration.
+
+I would appreciate the opportunity to contribute my skills and grow within your esteemed company.
+
+Thank you for your time and consideration.
+
+Best regards,
+Kishan</textarea>
+        </div>
+
+        <!-- PDF Upload -->
+        <div class="pdf-section">
+          <div id="drop-zone" class="upload-zone"
+            onclick="document.getElementById('pdf-input').click()"
+            ondragover="event.preventDefault();this.classList.add('drag')"
+            ondragleave="this.classList.remove('drag')"
+            ondrop="handleDrop(event)">
+            <p>📎 Click to upload PDF attachment</p>
+            <span>Resume, brochure, or any PDF · Optional</span>
+          </div>
+          <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handleFile(this.files[0])">
+          <div id="file-status"></div>
+        </div>
+
+        <!-- Settings -->
+        <div class="settings-row">
+          <label>
+            Delay between emails:
+            <input type="number" id="delay" value="7" min="1" max="30"> seconds
+          </label>
+          <span style="color:var(--text3)">|</span>
+          <span>Max 80 emails per run</span>
+        </div>
+
+        <!-- Send bar -->
+        <div class="send-bar">
+          <button class="send-btn" id="send-btn" onclick="sendEmails()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            Send all emails
+          </button>
+          <span class="rec-count" id="rec-count"></span>
+        </div>
+
+      </div><!-- /compose-card -->
+
+      <!-- Progress panel (hidden until send) -->
+      <div class="progress-panel" id="progress-panel" style="display:none">
+        <div class="stats-row">
+          <div class="stat"><div class="stat-val" id="s-total">0</div><div class="stat-lbl">Total</div></div>
+          <div class="stat"><div class="stat-val g" id="s-sent">0</div><div class="stat-lbl">Sent</div></div>
+          <div class="stat"><div class="stat-val r" id="s-fail">0</div><div class="stat-lbl">Failed</div></div>
+        </div>
+        <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+        <div class="log-box" id="log-box"></div>
+
+        <!-- Result table -->
+        <div id="result-table-wrap" style="display:none;margin-top:16px;overflow-x:auto">
+          <table class="result-table">
+            <thead><tr><th>#</th><th>Company</th><th>Email</th><th>Status</th></tr></thead>
+            <tbody id="result-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+let pdfFile = null;
+
+// ── Server check ──
+async function checkServer() {
+  try {
+    const r = await fetch('/ping');
+    const d = await r.json();
+    if (d.ok) {
+      document.getElementById('dot').classList.add('live');
+      document.getElementById('server-label').textContent = 'Ready';
+    }
+  } catch {
+    document.getElementById('server-label').textContent = 'Offline';
+  }
+}
+checkServer();
+
+// ── Toast ──
+function toast(msg, dur = 3500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), dur);
+}
+
+// ── Count recipients ──
+function countRecipients() {
+  const lines = document.getElementById('recipients').value
+    .split('\n').filter(l => l.trim() && l.includes('@') && l.includes(','));
+  const n = lines.length;
+  document.getElementById('rec-count').textContent = n > 0 ? `${n} recipient${n > 1 ? 's' : ''}` : '';
+  const badge = document.getElementById('nav-count');
+  if (n > 0) { badge.style.display = ''; badge.textContent = n; }
+  else badge.style.display = 'none';
+}
+
+// ── PDF Upload ──
+function handleFile(file) {
+  if (!file) return;
+  if (!file.name.endsWith('.pdf')) { toast('Please select a PDF file.'); return; }
+  pdfFile = file;
+  document.getElementById('drop-zone').style.display = 'none';
+  document.getElementById('file-status').innerHTML =
+    `<div class="file-chip">📄 ${file.name} &nbsp;·&nbsp; ${(file.size/1024).toFixed(1)} KB
+     <button onclick="removePdf()">×</button></div>`;
+  toast('PDF attached!');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag');
+  handleFile(e.dataTransfer.files[0]);
+}
+function removePdf() {
+  pdfFile = null;
+  document.getElementById('pdf-input').value = '';
+  document.getElementById('file-status').innerHTML = '';
+  document.getElementById('drop-zone').style.display = 'block';
+}
+
+// ── Log ──
+function log(msg, type = '') {
+  const box = document.getElementById('log-box');
+  const d = document.createElement('div');
+  d.className = 'll' + (type ? ' ' + type : '');
+  d.textContent = `[${new Date().toLocaleTimeString()}]  ${msg}`;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ── Send ──
+async function sendEmails() {
+  const gmail    = document.getElementById('gmail-input').value.trim();
+  const password = document.getElementById('pass-input').value.trim();
+  const subject  = document.getElementById('subject').value.trim();
+  const body     = document.getElementById('body').value.trim();
+  const recRaw   = document.getElementById('recipients').value.trim();
+  const delay    = document.getElementById('delay').value;
+
+  if (!gmail)    { toast('Enter your Gmail address.'); return; }
+  if (!password) { toast('Enter your App Password.'); return; }
+  if (!subject)  { toast('Enter a subject line.'); return; }
+  if (!body)     { toast('Enter an email body.'); return; }
+  if (!recRaw)   { toast('Paste your recipient list.'); return; }
+
+  // Count valid recipients
+  const validLines = recRaw.split('\n').filter(l => l.trim() && l.includes('@') && l.includes(','));
+  if (!validLines.length) { toast('No valid recipients found. Format: Company, email@example.com'); return; }
+
+  // Build form data
+  const fd = new FormData();
+  fd.append('gmail', gmail);
+  fd.append('password', password);
+  fd.append('subject', subject);
+  fd.append('body', body);
+  fd.append('recipients', recRaw);
+  fd.append('delay', delay);
+  if (pdfFile) fd.append('pdf', pdfFile);
+
+  // UI: sending state
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg> Sending...';
+
+  // Show progress panel
+  const panel = document.getElementById('progress-panel');
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth' });
+  document.getElementById('log-box').innerHTML = '';
+  document.getElementById('result-table-wrap').style.display = 'none';
+  document.getElementById('s-total').textContent = validLines.length;
+  document.getElementById('s-sent').textContent = '0';
+  document.getElementById('s-fail').textContent = '0';
+  document.getElementById('prog-fill').style.width = '0%';
+
+  log(`Starting — ${validLines.length} recipients · ${delay}s delay`, 'info');
+  if (pdfFile) log(`PDF: ${pdfFile.name}`, 'info');
+
+  try {
+    const res = await fetch('/send', { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (data.ok) {
+      // Update stats
+      document.getElementById('s-sent').textContent = data.sent;
+      document.getElementById('s-fail').textContent = data.failed;
+      document.getElementById('prog-fill').style.width = '100%';
+      document.getElementById('sent-sidebar').textContent = data.sent;
+      document.getElementById('fail-sidebar').textContent = data.failed;
+
+      // Log each result
+      data.results.forEach((r, i) => {
+        if (r.status === 'sent') {
+          log(`[${i+1}/${data.results.length}]  ✓  ${r.company}  →  ${r.email}`, 'ok');
+        } else {
+          log(`[${i+1}/${data.results.length}]  ✗  ${r.company}  →  ${r.email}  (${r.error || 'failed'})`, 'err');
+        }
+      });
+
+      log(`Done!  ✓ ${data.sent} sent  ✗ ${data.failed} failed`, data.failed > 0 ? 'warn' : 'ok');
+
+      // Result table
+      const tbody = document.getElementById('result-tbody');
+      tbody.innerHTML = data.results.map((r, i) => `
+        <tr>
+          <td style="color:var(--text3)">${i+1}</td>
+          <td style="font-weight:500">${r.company}</td>
+          <td style="color:var(--blue-t)">${r.email}</td>
+          <td><span class="badge ${r.status==='sent'?'b-green':'b-red'}">${r.status==='sent'?'✓ Sent':'✗ Failed'}</span></td>
+        </tr>`).join('');
+      document.getElementById('result-table-wrap').style.display = 'block';
+
+      toast(data.failed > 0 ? `Done — ${data.sent} sent, ${data.failed} failed` : `All ${data.sent} emails sent!`, 4000);
+      btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Send again';
+
+    } else {
+      log(`Error: ${data.error}`, 'err');
+      toast(`Error: ${data.error}`, 5000);
+      btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Retry';
+    }
+
+  } catch (e) {
+    log(`Connection error: ${e.message}`, 'err');
+    toast('Could not connect to server.', 4000);
+    btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Retry';
+  }
+
+  btn.disabled = false;
+}
+
+// ── Reset ──
+function resetForm() {
+  if (!confirm('Clear everything and start fresh?')) return;
+  document.getElementById('gmail-input').value = '';
+  document.getElementById('pass-input').value = '';
+  document.getElementById('recipients').value = '';
+  document.getElementById('subject').value = 'Application for Opportunity at {company_name}';
+  document.getElementById('body').value = '';
+  document.getElementById('progress-panel').style.display = 'none';
+  document.getElementById('nav-count').style.display = 'none';
+  document.getElementById('rec-count').textContent = '';
+  removePdf();
+  toast('Reset complete.');
+}
+</script>
+</body>
+</html>
