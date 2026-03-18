@@ -252,7 +252,7 @@ I would appreciate the opportunity to contribute my skills and grow within your 
 Thank you for your time and consideration.
 
 Best regards,
-Kishan</textarea>
+Mohamed</textarea>
         </div>
 
         <!-- PDF Upload -->
@@ -435,8 +435,23 @@ async function sendEmails() {
   if (pdfFile) log(`PDF: ${pdfFile.name}`, 'info');
 
   try {
-    const res = await fetch('/send', { method: 'POST', body: fd });
-    const data = await res.json();
+    log('Connecting to server... (may take up to 30s on first load)', 'info');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+    const res = await fetch('/send', { method: 'POST', body: fd, signal: controller.signal });
+    clearTimeout(timeout);
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      log('Server returned unexpected response. Please wait 30s and try again.', 'err');
+      log('Tip: Render free tier sleeps after inactivity — first request takes longer.', 'warn');
+      toast('Server waking up — please wait 30 seconds and try again.', 5000);
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Retry';
+      return;
+    }
 
     if (data.ok) {
       // Update stats
@@ -478,8 +493,14 @@ async function sendEmails() {
     }
 
   } catch (e) {
-    log(`Connection error: ${e.message}`, 'err');
-    toast('Could not connect to server.', 4000);
+    if (e.name === 'AbortError') {
+      log('Request timed out after 2 minutes.', 'err');
+      toast('Timed out — please try again.', 4000);
+    } else {
+      log(`Connection error: ${e.message}`, 'err');
+      log('Make sure the Render service is running and not sleeping.', 'warn');
+      toast('Could not connect — refresh page and try again.', 4000);
+    }
     btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Retry';
   }
 
