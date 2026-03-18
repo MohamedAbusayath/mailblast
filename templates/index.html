@@ -466,78 +466,85 @@ async function sendEmails() {
 
   btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg> Sending...';
 
-  log(`Sending to ${validLines.length} recipients · ${delay}s delay`, 'info');
-  if (pdfFile) log(`PDF: ${pdfFile.name}`, 'info');
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 300000); // 5 min timeout
-    const res = await fetch('/send', { method: 'POST', body: fd, signal: controller.signal });
-    clearTimeout(timeout);
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      log('Unexpected server response — please try again.', 'err');
-      toast('Something went wrong — please try again.', 5000);
-      btn.disabled = false;
-      btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Retry';
-      return;
+  // Parse recipients list
+  const recipients = [];
+  for (const line of recRaw.split('\n')) {
+    const parts = line.split(',').map(p => p.trim());
+    if (parts.length >= 2 && parts[parts.length-1].includes('@')) {
+      recipients.push({ company: parts[0], email: parts[parts.length-1] });
     }
-
-    if (data.ok) {
-      // Update stats
-      document.getElementById('s-sent').textContent = data.sent;
-      document.getElementById('s-fail').textContent = data.failed;
-      document.getElementById('prog-fill').style.width = '100%';
-      document.getElementById('sent-sidebar').textContent = data.sent;
-      document.getElementById('fail-sidebar').textContent = data.failed;
-
-      // Log each result
-      data.results.forEach((r, i) => {
-        if (r.status === 'sent') {
-          log(`[${i+1}/${data.results.length}]  ✓  ${r.company}  →  ${r.email}`, 'ok');
-        } else {
-          log(`[${i+1}/${data.results.length}]  ✗  ${r.company}  →  ${r.email}  (${r.error || 'failed'})`, 'err');
-        }
-      });
-
-      log(`Done!  ✓ ${data.sent} sent  ✗ ${data.failed} failed`, data.failed > 0 ? 'warn' : 'ok');
-
-      // Result table
-      const tbody = document.getElementById('result-tbody');
-      tbody.innerHTML = data.results.map((r, i) => `
-        <tr>
-          <td style="color:var(--text3)">${i+1}</td>
-          <td style="font-weight:500">${r.company}</td>
-          <td style="color:var(--blue-t)">${r.email}</td>
-          <td><span class="badge ${r.status==='sent'?'b-green':'b-red'}">${r.status==='sent'?'✓ Sent':'✗ Failed'}</span></td>
-        </tr>`).join('');
-      document.getElementById('result-table-wrap').style.display = 'block';
-
-      toast(data.failed > 0 ? `Done — ${data.sent} sent, ${data.failed} failed` : `All ${data.sent} emails sent!`, 4000);
-      btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Send again';
-
-    } else {
-      log(`Error: ${data.error}`, 'err');
-      toast(`Error: ${data.error}`, 5000);
-      btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Retry';
-    }
-
-  } catch (e) {
-    if (e.name === 'AbortError') {
-      log('Request timed out after 2 minutes.', 'err');
-      toast('Timed out — please try again.', 4000);
-    } else {
-      log(`Connection error: ${e.message}`, 'err');
-      log('Make sure the Render service is running and not sleeping.', 'warn');
-      toast('Could not connect — refresh page and try again.', 4000);
-    }
-    btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Retry';
   }
 
+  log(`Sending to ${recipients.length} recipients · ${delay}s delay`, 'info');
+  if (pdfFile) log(`PDF: ${pdfFile.name}`, 'info');
+  document.getElementById('s-total').textContent = recipients.length;
+
+  let sentOk = 0, sentFail = 0;
+  const results = [];
+
+  // Send ONE email at a time
+  for (let i = 0; i < recipients.length; i++) {
+    const r = recipients[i];
+    const fd = new FormData();
+    fd.append('gmail', gmail);
+    fd.append('password', password);
+    fd.append('subject', subject);
+    fd.append('body', body);
+    fd.append('to_email', r.email);
+    fd.append('company', r.company);
+    if (pdfFile) fd.append('pdf', pdfFile);
+
+    try {
+      const res = await fetch('/send', { method: 'POST', body: fd });
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch { data = { ok: false, error: 'Bad server response' }; }
+
+      if (data.ok) {
+        sentOk++;
+        log(`[${i+1}/${recipients.length}]  ✓  ${r.company}  →  ${r.email}`, 'ok');
+        results.push({ company: r.company, email: r.email, status: 'sent' });
+      } else {
+        sentFail++;
+        log(`[${i+1}/${recipients.length}]  ✗  ${r.company}  →  ${r.email}  (${data.error})`, 'err');
+        results.push({ company: r.company, email: r.email, status: 'failed', error: data.error });
+      }
+    } catch (e) {
+      sentFail++;
+      log(`[${i+1}/${recipients.length}]  ✗  ${r.email}  — ${e.message}`, 'err');
+      results.push({ company: r.company, email: r.email, status: 'failed', error: e.message });
+    }
+
+    // Update live stats
+    document.getElementById('s-sent').textContent = sentOk;
+    document.getElementById('s-fail').textContent = sentFail;
+    document.getElementById('prog-fill').style.width = Math.round(((i+1)/recipients.length)*100) + '%';
+    document.getElementById('sent-sidebar').textContent = sentOk;
+    document.getElementById('fail-sidebar').textContent = sentFail;
+
+    // Delay between sends (skip after last)
+    if (i < recipients.length - 1) {
+      await new Promise(res => setTimeout(res, parseInt(delay) * 1000));
+    }
+  }
+
+  // Done — show result table
+  log(`Done!  ✓ ${sentOk} sent  ✗ ${sentFail} failed`, sentFail > 0 ? 'warn' : 'ok');
+
+  const tbody = document.getElementById('result-tbody');
+  tbody.innerHTML = results.map((r, i) => `
+    <tr>
+      <td style="color:var(--text3)">${i+1}</td>
+      <td style="font-weight:500">${r.company}</td>
+      <td style="color:var(--blue-t)">${r.email}</td>
+      <td><span class="badge ${r.status==='sent'?'b-green':'b-red'}">${r.status==='sent'?'✓ Sent':'✗ Failed'}</span></td>
+    </tr>`).join('');
+  document.getElementById('result-table-wrap').style.display = 'block';
+
+  toast(sentFail > 0 ? `Done — ${sentOk} sent, ${sentFail} failed` : `All ${sentOk} emails sent! ✓`, 4000);
   btn.disabled = false;
+  btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Send again';
 }
 
 // ── Reset ──
