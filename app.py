@@ -5,6 +5,7 @@ Gmail SMTP + App Password | One email per request
 import smtplib
 import ssl
 import os
+import traceback
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
@@ -24,7 +25,6 @@ def ping():
 
 @app.route('/send', methods=['POST'])
 def send_one():
-    """Send ONE email per call. Frontend loops through recipients."""
     try:
         gmail    = request.form.get('gmail', '').strip()
         password = request.form.get('password', '').replace(' ', '')
@@ -33,21 +33,14 @@ def send_one():
         to_email = request.form.get('to_email', '').strip()
         company  = request.form.get('company', '').strip()
 
-        if not all([gmail, password, subject, body, to_email]):
+        print(f"[SEND] to={to_email} from={gmail}")
+
+        if not all([gmail, password, to_email, subject, body]):
             return jsonify({'ok': False, 'error': 'Missing required fields.'}), 400
 
         # Personalise
         subj = subject.replace('{company_name}', company).replace('{name}', company)
         bod  = body.replace('{company_name}', company).replace('{name}', company)
-
-        # PDF
-        pdf_bytes = None
-        pdf_name  = None
-        if 'pdf' in request.files:
-            f = request.files['pdf']
-            if f and f.filename and f.filename.endswith('.pdf'):
-                pdf_bytes = f.read()
-                pdf_name  = f.filename
 
         # Build email
         msg = MIMEMultipart('mixed')
@@ -64,26 +57,52 @@ def send_one():
         alt.attach(MIMEText(html_body, 'html'))
         msg.attach(alt)
 
-        if pdf_bytes and pdf_name:
-            part = MIMEBase('application', 'octet-stream')
-            part.set_payload(pdf_bytes)
-            encoders.encode_base64(part)
-            part.add_header('Content-Disposition', f'attachment; filename="{pdf_name}"')
-            msg.attach(part)
+        # PDF attachment
+        if 'pdf' in request.files:
+            f = request.files['pdf']
+            if f and f.filename and f.filename.endswith('.pdf'):
+                pdf_bytes = f.read()
+                part = MIMEBase('application', 'octet-stream')
+                part.set_payload(pdf_bytes)
+                encoders.encode_base64(part)
+                part.add_header('Content-Disposition', f'attachment; filename="{f.filename}"')
+                msg.attach(part)
 
-        # Send
+        # Send via Gmail SMTP — timeout=25 keeps it under Render's 30s limit
         context = ssl.create_default_context()
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context) as server:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context, timeout=25) as server:
             server.login(gmail, password)
             server.sendmail(gmail, to_email, msg.as_string())
 
+        print(f"[OK] Sent to {to_email}")
         return jsonify({'ok': True})
 
     except smtplib.SMTPAuthenticationError:
-        return jsonify({'ok': False, 'error': 'Gmail authentication failed. Check your email and App Password.'}), 401
+        error = 'Gmail authentication failed. Check your App Password — make sure 2-Step Verification is ON.'
+        print(f"[AUTH ERROR]")
+        return jsonify({'ok': False, 'error': error}), 401
+
     except smtplib.SMTPRecipientsRefused:
-        return jsonify({'ok': False, 'error': f'Email address rejected.'}), 400
+        error = f'Email address rejected: {to_email}'
+        print(f"[RECIPIENT ERROR]")
+        return jsonify({'ok': False, 'error': error}), 400
+
+    except smtplib.SMTPConnectError:
+        error = 'Could not connect to Gmail SMTP. Please try again in a few seconds.'
+        print(f"[CONNECT ERROR]")
+        return jsonify({'ok': False, 'error': error}), 500
+
+    except TimeoutError:
+        error = 'Connection timed out. Please try again.'
+        print(f"[TIMEOUT ERROR]")
+        return jsonify({'ok': False, 'error': error}), 500
+
+    except smtplib.SMTPException as e:
+        print(f"[SMTP ERROR] {e}")
+        return jsonify({'ok': False, 'error': f'SMTP error: {str(e)}'}), 500
+
     except Exception as e:
+        print(f"[ERROR] {traceback.format_exc()}")
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
