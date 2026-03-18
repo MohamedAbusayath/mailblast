@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MailBlast — Bulk Email Sender</title>
 <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -13,7 +14,6 @@
   --blue:#1a73e8;--blue-h:#1558d6;--blue-bg:#e8f0fe;--blue-t:#1558d6;
   --green:#1e8e3e;--green-bg:#e6f4ea;--green-t:#137333;
   --red:#d93025;--red-bg:#fce8e6;--red-t:#b3261e;
-  --amber-bg:#fef7e0;--amber-t:#b06000;
   --shadow2:0 4px 16px rgba(0,0,0,.15);
   --r:8px;--r2:24px;
 }
@@ -25,48 +25,37 @@ body{font-family:'Roboto',sans-serif;background:var(--surface);color:var(--text)
 .logo-text{font-family:'Google Sans',sans-serif;font-size:20px;font-weight:600;color:var(--text)}
 .logo-text span{color:var(--blue)}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
-.server-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:100px;background:var(--surface);font-size:12px;color:var(--text2)}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--text3);transition:background .4s}
-.dot.live{background:var(--green)}
+.status-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:100px;background:var(--surface);font-size:12px;color:var(--text2)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
 .layout{display:flex;flex:1;overflow:hidden}
 .sidebar{width:240px;flex-shrink:0;padding:12px 0;background:var(--white);border-right:1px solid var(--border);overflow-y:auto}
 .compose-wrap{padding:8px 14px 16px}
 .compose-btn{width:100%;display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--white);border:none;border-radius:var(--r2);box-shadow:var(--shadow2);cursor:pointer;font-family:'Google Sans',sans-serif;font-size:14px;font-weight:500;color:var(--text);transition:box-shadow .2s}
 .compose-btn:hover{box-shadow:0 6px 20px rgba(0,0,0,.2)}
 .compose-btn svg{width:22px;height:22px;fill:var(--blue)}
-.nav-item{display:flex;align-items:center;gap:14px;padding:9px 14px 9px 24px;border-radius:0 100px 100px 0;margin-right:14px;cursor:pointer;font-size:14px;color:var(--text2);transition:background .15s;user-select:none}
+.nav-item{display:flex;align-items:center;gap:14px;padding:9px 14px 9px 24px;border-radius:0 100px 100px 0;margin-right:14px;font-size:14px;color:var(--text2);user-select:none}
 .nav-item.active{background:var(--blue-bg);color:var(--blue-t);font-weight:500}
 .nav-item svg{width:18px;height:18px;fill:currentColor;flex-shrink:0}
 .nav-div{height:1px;background:var(--border);margin:8px 14px}
 .main{flex:1;overflow-y:auto}
 .main-inner{max-width:860px;margin:0 auto;padding:28px 24px}
+.guide{background:var(--blue-bg);border-radius:var(--r);padding:14px 16px;font-size:13px;color:var(--blue-t);line-height:1.9;margin-bottom:16px}
+.guide strong{font-weight:500}
+.guide code{background:rgba(26,115,232,.15);padding:1px 6px;border-radius:4px;font-size:12px}
 .compose-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:16px}
 .compose-header{background:#404040;color:#fff;padding:11px 18px;display:flex;align-items:center;justify-content:space-between;font-family:'Google Sans',sans-serif;font-size:14px;font-weight:500}
 .ch-btn{width:26px;height:26px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;cursor:pointer;font-size:16px}
 .ch-btn:hover{background:rgba(255,255,255,.25)}
-.cred-section{padding:14px 18px;border-bottom:1px solid var(--border);background:var(--surface)}
-.cred-title{font-size:12px;font-weight:500;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px}
-.cred-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.cred-field label{display:block;font-size:12px;color:var(--text3);margin-bottom:4px}
-.cred-field input{width:100%;border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;font-size:13px;font-family:'Roboto',sans-serif;color:var(--text);background:var(--white);outline:none;transition:border .15s}
-.cred-field input:focus{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-bg)}
 .field-row{display:flex;align-items:flex-start;border-bottom:1px solid var(--border);padding:10px 18px;gap:10px}
 .field-label{font-size:13px;color:var(--text3);min-width:52px;padding-top:3px;flex-shrink:0}
 .field-row input,.field-row textarea{flex:1;border:none;outline:none;font-size:14px;color:var(--text);font-family:'Roboto',sans-serif;background:transparent;resize:none;line-height:1.7}
-.field-row textarea.body-area{min-height:160px}
-.field-row textarea.recipients-area{min-height:120px;font-family:'Roboto Mono','Courier New',monospace;font-size:13px}
+.field-row textarea.body-area{min-height:180px}
+.field-row textarea.rec-area{min-height:130px;font-family:'Roboto Mono','Courier New',monospace;font-size:13px}
 .tag-chip{font-size:11px;padding:2px 9px;border-radius:100px;background:var(--blue-bg);color:var(--blue-t);font-weight:500;white-space:nowrap;align-self:center}
-.pdf-section{padding:14px 18px;border-bottom:1px solid var(--border)}
-.upload-zone{border:2px dashed var(--border);border-radius:var(--r);padding:20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface)}
-.upload-zone:hover,.upload-zone.drag{border-color:var(--blue);background:var(--blue-bg)}
-.upload-zone p{font-size:13px;color:var(--text2);font-weight:500}
-.upload-zone span{font-size:12px;color:var(--text3)}
-.file-chip{display:inline-flex;align-items:center;gap:8px;background:var(--green-bg);border:1px solid rgba(30,142,62,.2);border-radius:100px;padding:5px 14px;font-size:13px;color:var(--green-t);margin-top:10px}
-.file-chip button{border:none;background:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0 2px}
-.settings-row{display:flex;align-items:center;gap:20px;padding:10px 18px;border-bottom:1px solid var(--border);background:var(--surface);font-size:13px;color:var(--text2)}
-.settings-row input[type=number]{width:60px;border:1px solid var(--border);border-radius:var(--r);padding:4px 8px;font-size:13px;font-family:'Roboto',sans-serif;outline:none}
+.settings-row{display:flex;align-items:center;gap:20px;padding:10px 18px;border-bottom:1px solid var(--border);background:var(--surface);font-size:13px;color:var(--text2);flex-wrap:wrap}
+.settings-row input[type=number]{width:60px;border:1px solid var(--border);border-radius:var(--r);padding:4px 8px;font-size:13px;outline:none}
 .send-bar{display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--white)}
-.send-btn{display:flex;align-items:center;gap:8px;padding:9px 24px;background:var(--blue);color:#fff;border:none;border-radius:100px;font-family:'Google Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:all .15s}
+.send-btn{display:flex;align-items:center;gap:8px;padding:10px 28px;background:var(--blue);color:#fff;border:none;border-radius:100px;font-family:'Google Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:all .15s}
 .send-btn:hover{background:var(--blue-h)}
 .send-btn:disabled{background:var(--text3);cursor:not-allowed}
 .send-btn svg{width:16px;height:16px;fill:#fff}
@@ -74,7 +63,7 @@ body{font-family:'Roboto',sans-serif;background:var(--surface);color:var(--text)
 .progress-panel{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:16px}
 .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
 .stat{background:var(--surface);border-radius:var(--r);padding:14px;text-align:center;border:1px solid var(--border)}
-.stat-val{font-size:26px;font-weight:300;font-family:'Google Sans',sans-serif}
+.stat-val{font-size:28px;font-weight:300;font-family:'Google Sans',sans-serif}
 .stat-val.g{color:var(--green)}
 .stat-val.r{color:var(--red)}
 .stat-lbl{font-size:12px;color:var(--text3);margin-top:3px}
@@ -86,19 +75,16 @@ body{font-family:'Roboto',sans-serif;background:var(--surface);color:var(--text)
 .ll.err{color:#f38ba8}
 .ll.info{color:#89b4fa}
 .ll.warn{color:#f9e2af}
-.result-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px}
+.result-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:16px}
 .result-table th{text-align:left;padding:8px 10px;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
-.result-table td{padding:8px 10px;border-bottom:1px solid var(--surface2)}
+.result-table td{padding:9px 10px;border-bottom:1px solid var(--surface2)}
 .result-table tr:last-child td{border-bottom:none}
 .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:500}
 .b-green{background:var(--green-bg);color:var(--green-t)}
 .b-red{background:var(--red-bg);color:var(--red-t)}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#202124;color:#fff;padding:11px 22px;border-radius:var(--r);font-size:14px;z-index:9999;transition:transform .3s;pointer-events:none;white-space:nowrap}
 .toast.show{transform:translateX(-50%) translateY(0)}
-.guide{background:var(--blue-bg);border-radius:var(--r);padding:14px 16px;font-size:13px;color:var(--blue-t);line-height:1.9;margin-bottom:16px}
-.guide strong{font-weight:500}
-.guide code{background:rgba(26,115,232,.15);padding:1px 6px;border-radius:4px;font-size:12px}
-@media(max-width:640px){.sidebar{display:none}.cred-grid{grid-template-columns:1fr}.main-inner{padding:16px}}
+@media(max-width:640px){.sidebar{display:none}.main-inner{padding:16px}}
 </style>
 </head>
 <body>
@@ -109,7 +95,7 @@ body{font-family:'Roboto',sans-serif;background:var(--surface);color:var(--text)
     <span class="logo-text">Mail<span>Blast</span></span>
   </div>
   <div class="topbar-right">
-    <div class="server-pill"><div class="dot" id="dot"></div><span id="server-label">Connecting...</span></div>
+    <div class="status-pill"><div class="dot"></div><span>Ready</span></div>
   </div>
 </div>
 
@@ -120,8 +106,8 @@ body{font-family:'Roboto',sans-serif;background:var(--surface);color:var(--text)
     </div>
     <div class="nav-item active"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>Bulk send</div>
     <div class="nav-div"></div>
-    <div class="nav-item" style="color:var(--text3);cursor:default"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>Sent <span id="sent-sidebar" style="font-size:11px;margin-left:4px">0</span></div>
-    <div class="nav-item" style="color:var(--text3);cursor:default"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>Failed <span id="fail-sidebar" style="font-size:11px;margin-left:4px">0</span></div>
+    <div class="nav-item" style="color:var(--text3)"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>Sent <span id="sent-sidebar" style="font-size:11px;margin-left:4px">0</span></div>
+    <div class="nav-item" style="color:var(--text3)"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>Failed <span id="fail-sidebar" style="font-size:11px;margin-left:4px">0</span></div>
   </div>
 
   <div class="main">
@@ -129,11 +115,9 @@ body{font-family:'Roboto',sans-serif;background:var(--surface);color:var(--text)
 
       <div class="guide">
         <strong>How to use MailBlast</strong><br>
-        1. Enter your <strong>Gmail OAuth credentials</strong> below (Client ID, Secret, Refresh Token)<br>
-        2. Paste your <strong>recipient list</strong> — format: <code>Company Name, email@example.com</code><br>
-        3. Write your <strong>subject and body</strong> — use <code>{company_name}</code> for personalization<br>
-        4. Upload your <strong>PDF</strong> (optional) and click <strong>Send all emails</strong><br>
-        <strong>Need OAuth credentials?</strong> Follow the guide at the bottom of this page ↓
+        1. Paste your <strong>recipient list</strong> — format: <code>Company Name, email@example.com</code><br>
+        2. Write your <strong>subject and body</strong> — use <code>{company_name}</code> for personalization<br>
+        3. Click <strong>Send all emails</strong> — emails go directly from your Gmail via EmailJS!
       </div>
 
       <div class="compose-card">
@@ -142,31 +126,22 @@ body{font-family:'Roboto',sans-serif;background:var(--surface);color:var(--text)
           <button class="ch-btn" onclick="resetForm()">✕</button>
         </div>
 
-        <!-- OAuth Credentials -->
-        <div class="cred-section">
-          <div class="cred-title">Gmail OAuth credentials</div>
-          <div class="cred-grid">
-            <div class="cred-field"><label>Your Gmail address</label><input type="email" id="sender" placeholder="yourname@gmail.com"></div>
-            <div class="cred-field"><label>Client ID</label><input type="text" id="client-id" placeholder="xxxx.apps.googleusercontent.com"></div>
-            <div class="cred-field"><label>Client Secret</label><input type="password" id="client-secret" placeholder="GOCSPX-..."></div>
-            <div class="cred-field"><label>Refresh Token</label><input type="password" id="refresh-token" placeholder="1//0g..."></div>
-          </div>
-        </div>
-
-        <!-- Recipients -->
         <div class="field-row">
           <span class="field-label">To</span>
-          <textarea class="recipients-area" id="recipients" placeholder="ABC Company, hr@abccompany.com&#10;XYZ Technologies, jobs@xyztech.com&#10;Infosys Ltd, careers@infosys.com" oninput="countRecipients()"></textarea>
+          <textarea class="rec-area" id="recipients" placeholder="ABC Company, hr@abccompany.com&#10;XYZ Technologies, jobs@xyztech.com&#10;Infosys Ltd, careers@infosys.com&#10;TCS, hr@tcs.com" oninput="countRecipients()"></textarea>
         </div>
 
-        <!-- Subject -->
+        <div class="field-row">
+          <span class="field-label">From</span>
+          <input type="email" id="sender-name" placeholder="Your name or email shown to recipients (e.g. Kishan)">
+        </div>
+
         <div class="field-row">
           <span class="field-label">Subject</span>
           <input type="text" id="subject" value="Application for Opportunity at {company_name}">
           <span class="tag-chip">{company_name}</span>
         </div>
 
-        <!-- Body -->
         <div class="field-row" style="border-bottom:none">
           <span class="field-label">Body</span>
           <textarea class="body-area" id="body">Dear {company_name},
@@ -183,24 +158,14 @@ Best regards,
 Kishan</textarea>
         </div>
 
-        <!-- PDF -->
-        <div class="pdf-section">
-          <div id="drop-zone" class="upload-zone" onclick="document.getElementById('pdf-input').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
-            <p>📎 Click to upload PDF attachment</p>
-            <span>Resume, brochure, or any PDF · Optional</span>
-          </div>
-          <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handleFile(this.files[0])">
-          <div id="file-status"></div>
-        </div>
-
-        <!-- Settings -->
         <div class="settings-row">
-          <label>Delay between emails: <input type="number" id="delay" value="7" min="1" max="30"> seconds</label>
+          <label>Delay between emails: <input type="number" id="delay" value="3" min="1" max="30"> seconds</label>
           <span style="color:var(--text3)">|</span>
-          <span>Max 80 emails per run</span>
+          <span>200 free emails/month</span>
+          <span style="color:var(--text3)">|</span>
+          <span style="color:var(--green-t);font-weight:500">✓ No server needed</span>
         </div>
 
-        <!-- Send bar -->
         <div class="send-bar">
           <button class="send-btn" id="send-btn" onclick="sendEmails()">
             <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
@@ -210,7 +175,6 @@ Kishan</textarea>
         </div>
       </div>
 
-      <!-- Progress -->
       <div class="progress-panel" id="progress-panel" style="display:none">
         <div class="stats-row">
           <div class="stat"><div class="stat-val" id="s-total">0</div><div class="stat-lbl">Total</div></div>
@@ -227,22 +191,6 @@ Kishan</textarea>
         </div>
       </div>
 
-      <!-- OAuth Setup Guide -->
-      <div class="guide" style="background:var(--amber-bg);color:var(--amber-t)">
-        <strong>How to get Gmail OAuth credentials (one-time setup ~10 min)</strong><br><br>
-        <strong>Step 1</strong> — Go to <strong>console.cloud.google.com</strong> → Create new project → name it "MailBlast"<br>
-        <strong>Step 2</strong> — APIs &amp; Services → Enable APIs → search <strong>Gmail API</strong> → Enable<br>
-        <strong>Step 3</strong> — OAuth consent screen → External → fill App name "MailBlast" → Save<br>
-        <strong>Step 4</strong> — Credentials → Create Credentials → OAuth Client ID → Desktop App → Create<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Copy your <strong>Client ID</strong> and <strong>Client Secret</strong><br>
-        <strong>Step 5</strong> — To get Refresh Token, open this URL in browser (replace YOUR_CLIENT_ID):<br>
-        <code style="font-size:11px;word-break:break-all">https://accounts.google.com/o/oauth2/auth?client_id=YOUR_CLIENT_ID&redirect_uri=urn:ietf:wg:oauth:2.0:oob&response_type=code&scope=https://mail.google.com/</code><br><br>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Sign in → copy the <strong>authorization code</strong> shown<br>
-        <strong>Step 6</strong> — Run this in CMD (replace values):<br>
-        <code style="font-size:11px">curl -X POST https://oauth2.googleapis.com/token -d "client_id=YOUR_ID&client_secret=YOUR_SECRET&code=AUTH_CODE&grant_type=authorization_code&redirect_uri=urn:ietf:wg:oauth:2.0:oob"</code><br><br>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Copy the <strong>refresh_token</strong> from the response → paste above
-      </div>
-
     </div>
   </div>
 </div>
@@ -250,16 +198,13 @@ Kishan</textarea>
 <div class="toast" id="toast"></div>
 
 <script>
-let pdfFile = null;
+// ── EmailJS credentials ──
+const SERVICE_ID  = 'service_3s5aevo';
+const TEMPLATE_ID = 'template_9if358f';
+const PUBLIC_KEY  = 'JwWzCh-vL8LPUExti';
 
-async function checkServer() {
-  try {
-    const r = await fetch('/ping');
-    const d = await r.json();
-    if (d.ok) { document.getElementById('dot').classList.add('live'); document.getElementById('server-label').textContent = 'Ready'; }
-  } catch { document.getElementById('server-label').textContent = 'Offline'; }
-}
-checkServer();
+// Initialise EmailJS
+emailjs.init(PUBLIC_KEY);
 
 function toast(msg, dur=3500) {
   const el = document.getElementById('toast');
@@ -268,21 +213,9 @@ function toast(msg, dur=3500) {
 }
 
 function countRecipients() {
-  const n = document.getElementById('recipients').value.split('\n').filter(l => l.trim() && l.includes('@') && l.includes(',')).length;
+  const n = document.getElementById('recipients').value
+    .split('\n').filter(l => l.trim() && l.includes('@') && l.includes(',')).length;
   document.getElementById('rec-count').textContent = n > 0 ? `${n} recipient${n>1?'s':''}` : '';
-}
-
-function handleFile(file) {
-  if (!file || !file.name.endsWith('.pdf')) { toast('Please select a PDF file.'); return; }
-  pdfFile = file;
-  document.getElementById('drop-zone').style.display = 'none';
-  document.getElementById('file-status').innerHTML = `<div class="file-chip">📄 ${file.name} · ${(file.size/1024).toFixed(1)} KB<button onclick="removePdf()">×</button></div>`;
-  toast('PDF attached!');
-}
-function handleDrop(e) { e.preventDefault(); e.currentTarget.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); }
-function removePdf() {
-  pdfFile = null; document.getElementById('pdf-input').value = '';
-  document.getElementById('file-status').innerHTML = ''; document.getElementById('drop-zone').style.display = 'block';
 }
 
 function log(msg, type='') {
@@ -293,44 +226,22 @@ function log(msg, type='') {
   box.appendChild(d); box.scrollTop = box.scrollHeight;
 }
 
-async function wakeServer() {
-  const btn = document.getElementById('send-btn');
-  document.getElementById('progress-panel').style.display = 'block';
-  document.getElementById('progress-panel').scrollIntoView({behavior:'smooth'});
-  log('Waking up server... please wait', 'info');
-  btn.innerHTML = '⏳ Waking server...'; btn.disabled = true;
-  for (let i=1; i<=10; i++) {
-    try {
-      const r = await fetch('/ping');
-      const d = await r.json();
-      if (d.ok) { log('Server is awake! Starting send...', 'ok'); return true; }
-    } catch {}
-    log(`Attempt ${i}/10 — waiting 5s...`, 'warn');
-    await new Promise(r => setTimeout(r, 5000));
-  }
-  log('Server did not respond. Please refresh and try again.', 'err');
-  btn.disabled = false; btn.innerHTML = 'Retry';
-  return false;
+function personalize(text, company) {
+  return text.replace(/\{company_name\}/gi, company).replace(/\{name\}/gi, company);
 }
 
 async function sendEmails() {
-  const sender        = document.getElementById('sender').value.trim();
-  const clientId      = document.getElementById('client-id').value.trim();
-  const clientSecret  = document.getElementById('client-secret').value.trim();
-  const refreshToken  = document.getElementById('refresh-token').value.trim();
-  const subject       = document.getElementById('subject').value.trim();
-  const body          = document.getElementById('body').value.trim();
-  const recRaw        = document.getElementById('recipients').value.trim();
-  const delay         = document.getElementById('delay').value;
+  const subject    = document.getElementById('subject').value.trim();
+  const body       = document.getElementById('body').value.trim();
+  const recRaw     = document.getElementById('recipients').value.trim();
+  const senderName = document.getElementById('sender-name').value.trim() || 'Kishan';
+  const delay      = parseInt(document.getElementById('delay').value) || 3;
 
-  if (!sender)       { toast('Enter your Gmail address.'); return; }
-  if (!clientId)     { toast('Enter your Client ID.'); return; }
-  if (!clientSecret) { toast('Enter your Client Secret.'); return; }
-  if (!refreshToken) { toast('Enter your Refresh Token.'); return; }
-  if (!subject)      { toast('Enter a subject line.'); return; }
-  if (!body)         { toast('Enter an email body.'); return; }
-  if (!recRaw)       { toast('Paste your recipient list.'); return; }
+  if (!subject) { toast('Enter a subject line.'); return; }
+  if (!body)    { toast('Enter an email body.'); return; }
+  if (!recRaw)  { toast('Paste your recipient list.'); return; }
 
+  // Parse recipients
   const recipients = [];
   for (const line of recRaw.split('\n')) {
     const parts = line.split(',').map(p => p.trim());
@@ -339,6 +250,10 @@ async function sendEmails() {
   }
   if (!recipients.length) { toast('No valid recipients. Format: Company, email@example.com'); return; }
 
+  // Show progress panel
+  const panel = document.getElementById('progress-panel');
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth' });
   document.getElementById('log-box').innerHTML = '';
   document.getElementById('result-table-wrap').style.display = 'none';
   document.getElementById('s-total').textContent = recipients.length;
@@ -347,49 +262,37 @@ async function sendEmails() {
   document.getElementById('prog-fill').style.width = '0%';
 
   const btn = document.getElementById('send-btn');
-  const isAwake = await wakeServer();
-  if (!isAwake) return;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Sending...';
 
-  btn.innerHTML = '⏳ Sending...'; btn.disabled = true;
-  log(`Sending to ${recipients.length} recipients · ${delay}s delay`, 'info');
-  if (pdfFile) log(`PDF: ${pdfFile.name}`, 'info');
+  log(`Starting — ${recipients.length} recipients · ${delay}s delay`, 'info');
 
   let sentOk = 0, sentFail = 0;
   const results = [];
 
-  for (let i=0; i<recipients.length; i++) {
+  for (let i = 0; i < recipients.length; i++) {
     const r = recipients[i];
-    const fd = new FormData();
-    fd.append('sender', sender);
-    fd.append('client_id', clientId);
-    fd.append('client_secret', clientSecret);
-    fd.append('refresh_token', refreshToken);
-    fd.append('subject', subject);
-    fd.append('body', body);
-    fd.append('to_email', r.email);
-    fd.append('company', r.company);
-    if (pdfFile) fd.append('pdf', pdfFile);
+    const subj = personalize(subject, r.company);
+    const bod  = personalize(body, r.company);
+
+    const params = {
+      to_email:    r.email,
+      subject:     subj,
+      body:        bod,
+      company_name: r.company,
+      from_name:   senderName,
+    };
 
     try {
-      const res = await fetch('/send', { method: 'POST', body: fd });
-      const text = await res.text();
-      let data;
-      try { data = JSON.parse(text); }
-      catch { data = { ok: false, error: text.substring(0, 150) }; }
-
-      if (data.ok) {
-        sentOk++;
-        log(`[${i+1}/${recipients.length}]  ✓  ${r.company}  →  ${r.email}`, 'ok');
-        results.push({ company: r.company, email: r.email, status: 'sent' });
-      } else {
-        sentFail++;
-        log(`[${i+1}/${recipients.length}]  ✗  ${r.company}  →  ${r.email}  (${data.error})`, 'err');
-        results.push({ company: r.company, email: r.email, status: 'failed', error: data.error });
-      }
-    } catch(e) {
+      await emailjs.send(SERVICE_ID, TEMPLATE_ID, params);
+      sentOk++;
+      log(`[${i+1}/${recipients.length}]  ✓  ${r.company}  →  ${r.email}`, 'ok');
+      results.push({ company: r.company, email: r.email, status: 'sent' });
+    } catch (e) {
       sentFail++;
-      log(`[${i+1}/${recipients.length}]  ✗  ${r.email}  — ${e.message}`, 'err');
-      results.push({ company: r.company, email: r.email, status: 'failed', error: e.message });
+      const errMsg = e.text || e.message || JSON.stringify(e);
+      log(`[${i+1}/${recipients.length}]  ✗  ${r.company}  →  ${r.email}  (${errMsg})`, 'err');
+      results.push({ company: r.company, email: r.email, status: 'failed', error: errMsg });
     }
 
     document.getElementById('s-sent').textContent = sentOk;
@@ -398,13 +301,13 @@ async function sendEmails() {
     document.getElementById('sent-sidebar').textContent = sentOk;
     document.getElementById('fail-sidebar').textContent = sentFail;
 
-    if (i < recipients.length - 1) await new Promise(r => setTimeout(r, parseInt(delay)*1000));
+    if (i < recipients.length - 1) await new Promise(r => setTimeout(r, delay * 1000));
   }
 
   log(`Done!  ✓ ${sentOk} sent  ✗ ${sentFail} failed`, sentFail > 0 ? 'warn' : 'ok');
 
-  const tbody = document.getElementById('result-tbody');
-  tbody.innerHTML = results.map((r,i) => `
+  // Result table
+  document.getElementById('result-tbody').innerHTML = results.map((r,i) => `
     <tr>
       <td style="color:var(--text3)">${i+1}</td>
       <td style="font-weight:500">${r.company}</td>
@@ -412,6 +315,7 @@ async function sendEmails() {
       <td><span class="badge ${r.status==='sent'?'b-green':'b-red'}">${r.status==='sent'?'✓ Sent':'✗ Failed'}</span></td>
     </tr>`).join('');
   document.getElementById('result-table-wrap').style.display = 'block';
+
   toast(sentFail > 0 ? `Done — ${sentOk} sent, ${sentFail} failed` : `All ${sentOk} emails sent! ✓`, 4000);
   btn.disabled = false;
   btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Send again';
@@ -419,13 +323,13 @@ async function sendEmails() {
 
 function resetForm() {
   if (!confirm('Reset everything?')) return;
-  ['sender','client-id','client-secret','refresh-token','recipients','subject','body'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
+  document.getElementById('recipients').value = '';
+  document.getElementById('sender-name').value = '';
   document.getElementById('subject').value = 'Application for Opportunity at {company_name}';
+  document.getElementById('body').value = '';
   document.getElementById('progress-panel').style.display = 'none';
-  removePdf(); toast('Reset complete.');
+  document.getElementById('rec-count').textContent = '';
+  toast('Reset complete.');
 }
 </script>
 </body>
