@@ -386,6 +386,37 @@ function log(msg, type = '') {
   box.scrollTop = box.scrollHeight;
 }
 
+// ── Wake up server ──
+async function wakeServer() {
+  const btn = document.getElementById('send-btn');
+  const panel = document.getElementById('progress-panel');
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth' });
+  log('Waking up server... please wait', 'info');
+  btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg> Waking server...';
+  btn.disabled = true;
+
+  // Try pinging up to 10 times (every 5s = 50s total)
+  for (let i = 1; i <= 10; i++) {
+    try {
+      const r = await fetch('/ping');
+      const d = await r.json();
+      if (d.ok) {
+        log('Server is awake! Starting send...', 'ok');
+        document.getElementById('dot').classList.add('live');
+        document.getElementById('server-label').textContent = 'Ready';
+        return true;
+      }
+    } catch {}
+    log(`Server waking up... attempt ${i}/10 (waiting 5s)`, 'warn');
+    await new Promise(res => setTimeout(res, 5000));
+  }
+  log('Server did not wake up. Please refresh the page and try again.', 'err');
+  btn.disabled = false;
+  btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Retry';
+  return false;
+}
+
 // ── Send ──
 async function sendEmails() {
   const gmail    = document.getElementById('gmail-input').value.trim();
@@ -405,22 +436,7 @@ async function sendEmails() {
   const validLines = recRaw.split('\n').filter(l => l.trim() && l.includes('@') && l.includes(','));
   if (!validLines.length) { toast('No valid recipients found. Format: Company, email@example.com'); return; }
 
-  // Build form data
-  const fd = new FormData();
-  fd.append('gmail', gmail);
-  fd.append('password', password);
-  fd.append('subject', subject);
-  fd.append('body', body);
-  fd.append('recipients', recRaw);
-  fd.append('delay', delay);
-  if (pdfFile) fd.append('pdf', pdfFile);
-
-  // UI: sending state
-  const btn = document.getElementById('send-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg> Sending...';
-
-  // Show progress panel
+  // Show progress panel first
   const panel = document.getElementById('progress-panel');
   panel.style.display = 'block';
   panel.scrollIntoView({ behavior: 'smooth' });
@@ -431,13 +447,31 @@ async function sendEmails() {
   document.getElementById('s-fail').textContent = '0';
   document.getElementById('prog-fill').style.width = '0%';
 
-  log(`Starting — ${validLines.length} recipients · ${delay}s delay`, 'info');
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+
+  // Wake up server first
+  const isAwake = await wakeServer();
+  if (!isAwake) return;
+
+  // Build form data
+  const fd = new FormData();
+  fd.append('gmail', gmail);
+  fd.append('password', password);
+  fd.append('subject', subject);
+  fd.append('body', body);
+  fd.append('recipients', recRaw);
+  fd.append('delay', delay);
+  if (pdfFile) fd.append('pdf', pdfFile);
+
+  btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg> Sending...';
+
+  log(`Sending to ${validLines.length} recipients · ${delay}s delay`, 'info');
   if (pdfFile) log(`PDF: ${pdfFile.name}`, 'info');
 
   try {
-    log('Connecting to server... (may take up to 30s on first load)', 'info');
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+    const timeout = setTimeout(() => controller.abort(), 300000); // 5 min timeout
     const res = await fetch('/send', { method: 'POST', body: fd, signal: controller.signal });
     clearTimeout(timeout);
     const text = await res.text();
@@ -445,9 +479,8 @@ async function sendEmails() {
     try {
       data = JSON.parse(text);
     } catch {
-      log('Server returned unexpected response. Please wait 30s and try again.', 'err');
-      log('Tip: Render free tier sleeps after inactivity — first request takes longer.', 'warn');
-      toast('Server waking up — please wait 30 seconds and try again.', 5000);
+      log('Unexpected server response — please try again.', 'err');
+      toast('Something went wrong — please try again.', 5000);
       btn.disabled = false;
       btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Retry';
       return;
